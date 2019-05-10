@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Live Text Translator</string>
+
+    <!-- Text shown when the permissions are denied -->
+    <string name="text_permission_rationale">Provide camera permission to show camera preview</string>
+
+    <!-- Settings snackbar button text -->
+    <string name="action_snackbar_settings">Settings</string>
+
+    <!-- Text shown when the settings app is not present on the device -->
+    <string name="no_settings_exists">Settings app doesn\'t exists</string>
 </resources>
