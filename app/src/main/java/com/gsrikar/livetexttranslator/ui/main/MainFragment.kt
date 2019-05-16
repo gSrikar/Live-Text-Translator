@@ -10,6 +10,9 @@ import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.camera.core.CameraX
+import androidx.camera.core.Preview
+import androidx.camera.core.PreviewConfig
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProviders
@@ -28,6 +31,8 @@ class MainFragment : Fragment() {
 
     private lateinit var viewModel: MainViewModel
 
+    private lateinit var preview: Preview
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -39,12 +44,27 @@ class MainFragment : Fragment() {
         super.onActivityCreated(savedInstanceState)
         viewModel = ViewModelProviders.of(this).get(MainViewModel::class.java)
 
+        setPreview()
         checkPermission()
+    }
+
+    private fun setPreview() {
+        val rotation = activity?.windowManager?.defaultDisplay?.rotation ?: 0
+        val previewConfig = PreviewConfig.Builder()
+            .setLensFacing(CameraX.LensFacing.BACK)
+            .setTargetRotation(rotation)
+            .build()
+        preview = Preview(previewConfig)
+
+        // Listen to the preview output updates
+        preview.setOnPreviewOutputUpdateListener {
+            cameraTextureView.surfaceTexture = it.surfaceTexture
+        }
     }
 
     private fun checkPermission() {
         if (isPermissionGranted()) {
-            // TODO: Show camera preview
+            prepareToStartCamera()
         } else {
             requestPermission()
         }
@@ -73,7 +93,7 @@ class MainFragment : Fragment() {
 
     private fun checkPermissionGrantedSettings(resultCode: Int) {
         if (resultCode == RESULT_OK) {
-            // TODO: Show camera preview
+            prepareToStartCamera()
         } else {
             showRationaleText()
         }
@@ -91,7 +111,7 @@ class MainFragment : Fragment() {
 
     private fun checkPermissionGranted(grantResults: IntArray) {
         if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
-            // TODO: Show camera preview
+            prepareToStartCamera()
         } else if (shouldShowRational()) {
             checkPermission()
         } else {
@@ -133,4 +153,17 @@ class MainFragment : Fragment() {
         return context?.let { intent.resolveActivity(it.packageManager) } == null
     }
 
+    /**
+     * Make sure the view is inflated before camera starts
+     */
+    private fun prepareToStartCamera() {
+        cameraTextureView.post { startCamera() }
+    }
+
+    private fun startCamera() {
+        // Bind the preview a lifecycle
+        // Based on the live data lifecycle changes, CameraX decides
+        // when to start the camera preview and when to stop
+        CameraX.bindToLifecycle(this, preview)
+    }
 }
