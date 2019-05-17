@@ -6,20 +6,23 @@ import android.content.Intent
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.camera.core.CameraX
-import androidx.camera.core.Preview
-import androidx.camera.core.PreviewConfig
+import androidx.camera.core.*
 import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE
+import com.gsrikar.livetexttranslator.BuildConfig
 import com.gsrikar.livetexttranslator.R
 import kotlinx.android.synthetic.main.main_fragment.*
+import java.io.File
+import java.io.IOException
 
 
 // Request for camera permissions
@@ -27,11 +30,37 @@ private const val REQUEST_CODE_REQUEST_CAMERA_PERMISSION = 8912
 private const val REQUEST_CODE_REQUEST_CAMERA_PERMISSION_FROM_SETTINGS = 8913
 private const val CAMERA_PERMISSION = Manifest.permission.CAMERA
 
+// Log cat tag
+private val TAG = MainFragment::class.java.simpleName
+// True for debug builds and false otherwise
+private val DBG = BuildConfig.DEBUG
+
 class MainFragment : Fragment() {
 
     private lateinit var viewModel: MainViewModel
 
     private lateinit var preview: Preview
+
+    private lateinit var imageCapture: ImageCapture
+
+    private val imageSavedListener =
+        object : ImageCapture.OnImageSavedListener {
+            override fun onImageSaved(file: File) {
+                Snackbar.make(
+                    main, "Image saved successfully at ${file.path}",
+                    LENGTH_INDEFINITE
+                ).show()
+            }
+
+            override fun onError(useCaseError: ImageCapture.UseCaseError, message: String, cause: Throwable?) {
+                Snackbar.make(
+                    main, "Image capture failed: $message",
+                    LENGTH_INDEFINITE
+                ).show()
+                cause?.printStackTrace()
+            }
+
+        }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -45,7 +74,17 @@ class MainFragment : Fragment() {
         viewModel = ViewModelProviders.of(this).get(MainViewModel::class.java)
 
         setPreview()
+        setListeners()
         checkPermission()
+    }
+
+    private fun setListeners() {
+        captureImageButton.setOnClickListener { captureImage() }
+
+        // Listen to the preview output updates
+        preview.setOnPreviewOutputUpdateListener {
+            cameraTextureView.surfaceTexture = it.surfaceTexture
+        }
     }
 
     private fun setPreview() {
@@ -56,10 +95,11 @@ class MainFragment : Fragment() {
             .build()
         preview = Preview(previewConfig)
 
-        // Listen to the preview output updates
-        preview.setOnPreviewOutputUpdateListener {
-            cameraTextureView.surfaceTexture = it.surfaceTexture
-        }
+        val imageCaptureConfig = ImageCaptureConfig.Builder()
+            .setCaptureMode(ImageCapture.CaptureMode.MAX_QUALITY)
+            .setFlashMode(FlashMode.AUTO)
+            .build()
+        imageCapture = ImageCapture(imageCaptureConfig)
     }
 
     private fun checkPermission() {
@@ -164,6 +204,29 @@ class MainFragment : Fragment() {
         // Bind the preview a lifecycle
         // Based on the live data lifecycle changes, CameraX decides
         // when to start the camera preview and when to stop
-        CameraX.bindToLifecycle(this, preview)
+        CameraX.bindToLifecycle(this, preview, imageCapture)
+    }
+
+    private fun captureImage() {
+        // Decide the location of the picture to be saved to
+        val file = File(Environment.DIRECTORY_DCIM, "${System.currentTimeMillis()}.jpg")
+        if (DBG) Log.d(TAG, "File Path: ${file.path}")
+        // Create the file
+        if (!file.exists()) {
+            try {
+                val directoryCreated = file.mkdirs()
+                if (DBG) Log.d(TAG, "Directory Created: $directoryCreated")
+                val isCreated = file.createNewFile()
+                if (DBG) Log.d(TAG, "File Created: $isCreated")
+            } catch (e: IOException) {
+                Snackbar.make(
+                    main, "Failed to create the file",
+                    LENGTH_INDEFINITE
+                ).show()
+                e.printStackTrace()
+            }
+        }
+        // Take a picture and save it
+        imageCapture.takePicture(file, imageSavedListener)
     }
 }
