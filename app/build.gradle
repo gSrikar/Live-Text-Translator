@@ -10,8 +10,8 @@ android {
         applicationId "com.gsrikar.livetexttranslator"
         minSdkVersion 21
         targetSdkVersion 28
-        versionCode 6
-        versionName "1.5"
+        versionCode 7
+        versionName "1.6"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -37,4 +37,5 @@ dependencies {
     implementation 'androidx.navigation:navigation-ui-ktx:2.0.0'
     implementation "androidx.camera:camera-core:$cameraxVersion"
     implementation "androidx.camera:camera-camera2:$cameraxVersion"
+    implementation 'com.google.android.material:material:1.1.0-alpha06'
 }
