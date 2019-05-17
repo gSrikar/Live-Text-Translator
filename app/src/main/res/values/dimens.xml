@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Vertical margin for capture image button -->
+    <dimen name="capture_image_vertical_margin">64dp</dimen>
+
+    <!-- Capture button min width and height -->
+    <dimen name="capture_button_min_width">0dp</dimen>
+    <dimen name="capture_button_min_height">0dp</dimen>
+</resources>

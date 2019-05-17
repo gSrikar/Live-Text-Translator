@@ -3,4 +3,7 @@
     <color name="colorPrimary">@android:color/transparent</color>
     <color name="colorPrimaryDark">@android:color/transparent</color>
     <color name="colorAccent">#D81B60</color>
+
+    <!-- White color for backgrounds -->
+    <color name="colorWhite">#FFFFFF</color>
 </resources>
