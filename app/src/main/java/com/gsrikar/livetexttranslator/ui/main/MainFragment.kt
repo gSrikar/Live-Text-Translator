@@ -17,7 +17,7 @@ import androidx.core.content.ContextCompat.checkSelfPermission
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE
+import com.google.android.material.snackbar.Snackbar.*
 import com.gsrikar.livetexttranslator.BuildConfig
 import com.gsrikar.livetexttranslator.R
 import kotlinx.android.synthetic.main.main_fragment.*
@@ -25,10 +25,16 @@ import java.io.File
 import java.io.IOException
 
 
-// Request for camera permissions
-private const val REQUEST_CODE_REQUEST_CAMERA_PERMISSION = 8912
+// Request code for runtime permissions
+private const val REQUEST_CODE_REQUEST_RUNTIME_PERMISSION = 8912
+// Request code for settings activity
 private const val REQUEST_CODE_REQUEST_CAMERA_PERMISSION_FROM_SETTINGS = 8913
+
+// Run time permissions
 private const val CAMERA_PERMISSION = Manifest.permission.CAMERA
+private const val STORAGE_PERMISSION = Manifest.permission.WRITE_EXTERNAL_STORAGE
+
+private val RUNTIME_PERMISSION = arrayOf(CAMERA_PERMISSION, STORAGE_PERMISSION)
 
 // Log cat tag
 private val TAG = MainFragment::class.java.simpleName
@@ -48,14 +54,14 @@ class MainFragment : Fragment() {
             override fun onImageSaved(file: File) {
                 Snackbar.make(
                     main, "Image saved successfully at ${file.path}",
-                    LENGTH_INDEFINITE
+                    LENGTH_SHORT
                 ).show()
             }
 
             override fun onError(useCaseError: ImageCapture.UseCaseError, message: String, cause: Throwable?) {
                 Snackbar.make(
                     main, "Image capture failed: $message",
-                    LENGTH_INDEFINITE
+                    LENGTH_LONG
                 ).show()
                 cause?.printStackTrace()
             }
@@ -112,15 +118,16 @@ class MainFragment : Fragment() {
 
     private fun requestPermission() {
         requestPermissions(
-            arrayOf(CAMERA_PERMISSION),
-            REQUEST_CODE_REQUEST_CAMERA_PERMISSION
+            RUNTIME_PERMISSION,
+            REQUEST_CODE_REQUEST_RUNTIME_PERMISSION
         )
     }
 
     private fun isPermissionGranted(): Boolean {
         return context?.let {
-            checkSelfPermission(it, CAMERA_PERMISSION)
-        } == PERMISSION_GRANTED
+            checkSelfPermission(it, CAMERA_PERMISSION) == PERMISSION_GRANTED &&
+                    checkSelfPermission(it, STORAGE_PERMISSION) == PERMISSION_GRANTED
+        } ?: false
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -145,22 +152,21 @@ class MainFragment : Fragment() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
-            REQUEST_CODE_REQUEST_CAMERA_PERMISSION -> checkPermissionGranted(grantResults)
+            REQUEST_CODE_REQUEST_RUNTIME_PERMISSION -> checkPermissionGranted()
         }
     }
 
-    private fun checkPermissionGranted(grantResults: IntArray) {
-        if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
-            prepareToStartCamera()
-        } else if (shouldShowRational()) {
-            checkPermission()
-        } else {
-            showRationaleText()
+    private fun checkPermissionGranted() {
+        when {
+            isPermissionGranted() -> prepareToStartCamera()
+            shouldShowRational() -> checkPermission()
+            else -> showRationaleText()
         }
     }
 
     private fun shouldShowRational(): Boolean {
-        return shouldShowRequestPermissionRationale(CAMERA_PERMISSION)
+        return shouldShowRequestPermissionRationale(CAMERA_PERMISSION) ||
+                shouldShowRequestPermissionRationale(STORAGE_PERMISSION)
     }
 
     private fun showRationaleText() {
@@ -209,19 +215,20 @@ class MainFragment : Fragment() {
 
     private fun captureImage() {
         // Decide the location of the picture to be saved to
-        val file = File(Environment.DIRECTORY_DCIM, "${System.currentTimeMillis()}.jpg")
+        val file = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
+            "IMG_${System.currentTimeMillis()}.jpg"
+        )
         if (DBG) Log.d(TAG, "File Path: ${file.path}")
         // Create the file
         if (!file.exists()) {
             try {
-                val directoryCreated = file.mkdirs()
-                if (DBG) Log.d(TAG, "Directory Created: $directoryCreated")
                 val isCreated = file.createNewFile()
                 if (DBG) Log.d(TAG, "File Created: $isCreated")
             } catch (e: IOException) {
                 Snackbar.make(
                     main, "Failed to create the file",
-                    LENGTH_INDEFINITE
+                    LENGTH_LONG
                 ).show()
                 e.printStackTrace()
             }
