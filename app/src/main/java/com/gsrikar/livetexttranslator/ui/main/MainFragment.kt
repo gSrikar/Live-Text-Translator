@@ -7,6 +7,8 @@ import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.HandlerThread
 import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
@@ -20,6 +22,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.snackbar.Snackbar.*
 import com.gsrikar.livetexttranslator.BuildConfig
 import com.gsrikar.livetexttranslator.R
+import com.gsrikar.livetexttranslator.analyze.LiveTextAnalyzer
 import kotlinx.android.synthetic.main.main_fragment.*
 import java.io.File
 import java.io.IOException
@@ -41,6 +44,9 @@ private val TAG = MainFragment::class.java.simpleName
 // True for debug builds and false otherwise
 private val DBG = BuildConfig.DEBUG
 
+// Handler thread name
+private const val THREAD_NAME_LIVE_TEXT_IMAGE_ANALYSIS = "thread-name-live-text-image-analysis"
+
 class MainFragment : Fragment() {
 
     private lateinit var viewModel: MainViewModel
@@ -48,6 +54,7 @@ class MainFragment : Fragment() {
     private lateinit var preview: Preview
 
     private lateinit var imageCapture: ImageCapture
+    private lateinit var analyzerUseCase: ImageAnalysis
 
     private val imageSavedListener =
         object : ImageCapture.OnImageSavedListener {
@@ -80,6 +87,7 @@ class MainFragment : Fragment() {
         viewModel = ViewModelProviders.of(this).get(MainViewModel::class.java)
 
         setPreview()
+        setImageAnalysisConfig()
         setListeners()
         checkPermission()
     }
@@ -95,6 +103,7 @@ class MainFragment : Fragment() {
 
     private fun setPreview() {
         val rotation = activity?.windowManager?.defaultDisplay?.rotation ?: 0
+        if (DBG) Log.d(TAG, "Rotation $rotation")
         val previewConfig = PreviewConfig.Builder()
             .setLensFacing(CameraX.LensFacing.BACK)
             .setTargetRotation(rotation)
@@ -105,7 +114,26 @@ class MainFragment : Fragment() {
             .setCaptureMode(ImageCapture.CaptureMode.MAX_QUALITY)
             .setFlashMode(FlashMode.AUTO)
             .build()
+
+        // Initialize the capture
         imageCapture = ImageCapture(imageCaptureConfig)
+    }
+
+    private fun setImageAnalysisConfig() {
+        val config = ImageAnalysisConfig.Builder().apply {
+            // Create a handler thread and start it
+            val analyzerThread = HandlerThread(THREAD_NAME_LIVE_TEXT_IMAGE_ANALYSIS).apply { start() }
+            // Receive the callbacks on the background thread
+            setCallbackHandler(Handler(analyzerThread.looper))
+
+            // Use the latest images for the analysis
+            setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
+        }.build()
+
+        // Create an image analyser
+        analyzerUseCase = ImageAnalysis(config).apply {
+            analyzer = LiveTextAnalyzer()
+        }
     }
 
     private fun checkPermission() {
@@ -210,7 +238,7 @@ class MainFragment : Fragment() {
         // Bind the preview a lifecycle
         // Based on the live data lifecycle changes, CameraX decides
         // when to start the camera preview and when to stop
-        CameraX.bindToLifecycle(this, preview, imageCapture)
+        CameraX.bindToLifecycle(this, preview, imageCapture, analyzerUseCase)
     }
 
     private fun captureImage() {
