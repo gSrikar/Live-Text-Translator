@@ -20,8 +20,13 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.snackbar.Snackbar.*
+import com.google.firebase.analytics.FirebaseAnalytics
 import com.gsrikar.livetexttranslator.BuildConfig
 import com.gsrikar.livetexttranslator.R
+import com.gsrikar.livetexttranslator.analytics.BUNDLE_EXTRA_CAMERA_PERMISSION_GRANTED
+import com.gsrikar.livetexttranslator.analytics.BUNDLE_EXTRA_STORAGE_PERMISSION_GRANTED
+import com.gsrikar.livetexttranslator.analytics.FIREBASE_ANALYTICS_EVENT_CAPTURE_IMAGE
+import com.gsrikar.livetexttranslator.analytics.FIREBASE_ANALYTICS_EVENT_RUNTIME_PERMISSION
 import com.gsrikar.livetexttranslator.analyze.LiveTextAnalyzer
 import kotlinx.android.synthetic.main.main_fragment.*
 import java.io.File
@@ -48,6 +53,8 @@ private val DBG = BuildConfig.DEBUG
 private const val THREAD_NAME_LIVE_TEXT_IMAGE_ANALYSIS = "thread-name-live-text-image-analysis"
 
 class MainFragment : Fragment() {
+
+    private val firebaseAnalytics = context?.let { FirebaseAnalytics.getInstance(it) }
 
     private lateinit var viewModel: MainViewModel
 
@@ -93,12 +100,27 @@ class MainFragment : Fragment() {
     }
 
     private fun setListeners() {
-        captureImageButton.setOnClickListener { captureImage() }
+        captureImageButton.setOnClickListener {
+            trackCapture()
+            captureImage()
+        }
 
         // Listen to the preview output updates
         preview.setOnPreviewOutputUpdateListener {
             cameraTextureView.surfaceTexture = it.surfaceTexture
         }
+    }
+
+    private fun trackCapture() {
+        firebaseAnalytics?.logEvent(FIREBASE_ANALYTICS_EVENT_CAPTURE_IMAGE, null)
+    }
+
+    private fun trackPermissionGranted(isCameraGranted: Boolean, isStorageGranted: Boolean) {
+        val bundle = Bundle().apply {
+            putString(BUNDLE_EXTRA_CAMERA_PERMISSION_GRANTED, isCameraGranted.toString())
+            putString(BUNDLE_EXTRA_STORAGE_PERMISSION_GRANTED, isStorageGranted.toString())
+        }
+        firebaseAnalytics?.logEvent(FIREBASE_ANALYTICS_EVENT_RUNTIME_PERMISSION, bundle)
     }
 
     private fun setPreview() {
